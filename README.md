@@ -113,7 +113,6 @@ networking.firewall = {
 
 ## File Locations
 
-
 ### Module Configuration
 - **User/Group**: `ais` (dedicated system user)
 - **Data Directory**: `/var/lib/aisdispatcher`
