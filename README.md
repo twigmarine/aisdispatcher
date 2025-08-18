@@ -79,14 +79,20 @@ services.caddy.virtualHosts."ais.example.com" = {
 
 ### For Serial AIS Receivers
 
-If you're using a serial AIS receiver, you may need additional groups:
+For serial AIS receivers, you have two options for device access:
 
+#### Option 1: Broad Access (Simple)
 ```nix
 services.aisdispatcher = {
   enable = true;
   serialGroups = [ "dialout" "tty" ]; # Add groups for serial access
 };
 ```
+
+#### Option 2: Device-Specific Access (Recommended)
+For better security, limit access to only your AIS receiver device. See:
+- **[examples/device-specific-access.nix](examples/device-specific-access.nix)** - Complete configuration example
+- **[examples/device-discovery.md](examples/device-discovery.md)** - Guide to identify your device and create udev rules
 
 ### TCP/UDP Server Mode
 
