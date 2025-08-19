@@ -113,7 +113,6 @@ stdenv.mkDerivation rec {
 - **Web Interface**: Default port 8080 (configured as 8079 in iris)
 - **Websocket**: Default port 8081
 - **Protocols**: HTTP redirects to HTTPS on port 8043
-- Verify service: `systemctl status aisdispatcher`
 - Test web interface: `https://iris:8079` and websocket `https://iris:8081`
 
 ### Module Configuration

@@ -129,6 +129,12 @@ networking.firewall = {
 The AIS Dispatcher runs as user systemd services under the `ais` user account:
 
 ```bash
+# Status of the user session services
+systemctl status user@$(id -u ais).service
+systemctl stop user@$(id -u ais).service
+systemctl start user@$(id -u ais).service
+systemctl is-active user@$(id -u ais).service
+
 # Check aiscontrol service status (main web interface)
 sudo -u ais systemctl --user status aiscontrol
 

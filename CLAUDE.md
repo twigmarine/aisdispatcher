@@ -86,7 +86,5 @@ The module generates configuration files dynamically from NixOS options:
 3. Test package build on target architecture
 
 ### Debugging Service Issues
-- Check systemd status: `systemctl status aisdispatcher`
-- View logs: `journalctl -u aisdispatcher -f`
 - Inspect user services: `sudo -u ais systemctl --user status`
 - Verify configuration: Check files in `/var/lib/aisdispatcher/`
