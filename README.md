@@ -165,6 +165,35 @@ The interface allows you to:
 - Configure data forwarding destinations
 - Manage system settings
 
+## Updating the Flake
+
+If you're using this flake as an input in your NixOS configuration, you can update to the latest version:
+
+```bash
+# Update to the latest commit on the main branch
+nix flake update aisdispatcher
+
+# Or update all inputs
+nix flake update
+
+# Then rebuild your system
+sudo nixos-rebuild switch --flake .
+```
+
+The `nix flake update` command will:
+- Fetch the latest commit from the GitHub repository
+- Update the `flake.lock` file with the new commit hash
+- Lock to that specific version for reproducible builds
+
+You can also update to a specific commit or branch:
+```bash
+# Update input to a specific commit
+nix flake lock --update-input aisdispatcher --override-input aisdispatcher github:twigmarine/aisdispatcher/COMMIT_HASH
+
+# Update input to a specific branch  
+nix flake lock --update-input aisdispatcher --override-input aisdispatcher github:twigmarine/aisdispatcher/branch-name
+```
+
 ## Notes
 
 - The service runs as a dedicated `ais` user for security

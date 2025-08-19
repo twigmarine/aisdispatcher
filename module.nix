@@ -4,7 +4,7 @@ with lib;
 
 let
   cfg = config.services.aisdispatcher;
-  aisdispatcher = pkgs.callPackage ../pkgs/aisdispatcher { };
+  aisdispatcher = pkgs.callPackage ./package.nix { };
   
   # Generate aiscontrol.cfg file
   aiscontrolConfig = pkgs.writeText "aiscontrol.cfg" ''
