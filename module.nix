@@ -1,19 +1,24 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 with lib;
 
 let
   cfg = config.services.aisdispatcher;
   aisdispatcher = pkgs.callPackage ./package.nix { };
-  
+
   # Generate aiscontrol.cfg file
   aiscontrolConfig = pkgs.writeText "aiscontrol.cfg" ''
     listen_host = ${cfg.interface}
     listen_port = ${toString cfg.port}
-    
+
     ws_listen_host = ${cfg.websocketInterface}
     ws_listen_port = ${toString cfg.websocketPort}
-    
+
     htdocs = ${aisdispatcher}/share/aisdispatcher/htdocs
     session_key = ${cfg.sessionKey}
     session_timeout = ${toString cfg.sessionTimeout}
@@ -22,11 +27,12 @@ let
     json_config = ${cfg.dataDir}/aisdispatcher.json
     networkctl = ${if cfg.enableNetworkctl then "true" else "false"}
   '';
-in {
+in
+{
   meta = {
     maintainers = with lib.maintainers; [ ]; # Add your name here
     # description
-    # homepage  
+    # homepage
     # downloadPage
   };
   options.services.aisdispatcher = {
@@ -79,7 +85,7 @@ in {
       default = false;
       description = ''
         Whether to open the firewall for the web interface and websocket ports.
-        
+
         Note: If you configure AIS Dispatcher to use TCP/UDP server mode for 
         receiving AIS data (via the web UI), you'll need to manually open 
         those additional ports in your firewall configuration.
@@ -128,13 +134,13 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # Set read-only computed options  
+    # Set read-only computed options
     services.aisdispatcher.package = mkDefault aisdispatcher;
     services.aisdispatcher.htdocsPath = mkDefault "${aisdispatcher}/share/aisdispatcher/htdocs";
 
     # Create user and group
-    users.groups.${cfg.group} = {};
-    
+    users.groups.${cfg.group} = { };
+
     users.users.${cfg.user} = {
       isSystemUser = true;
       group = cfg.group;
@@ -143,6 +149,58 @@ in {
       createHome = true;
       extraGroups = cfg.serialGroups ++ [ "systemd-journal" ];
       linger = true;
+    };
+
+    # Create user-specific systemd configuration
+
+    # ----- Template user unit: aisdispatcher@.service -----
+    systemd.user.services."aisdispatcher@" = {
+      description = "AIS Dispatcher %i";
+
+      # [Unit]
+      unitConfig = {
+        ConditionUser = "ais";
+        ConditionFileNotEmpty = "${cfg.dataDir}/aisdispatcher/aisdispatcher_%i.opts";
+        # Avoid system-level network targets in user units
+        After = [
+          "aiscontrol.service"
+          "dbus.service"
+        ];
+        # Optional: tie lifecycle to the target below
+        PartOf = [ "aiscontrol.service" ];
+      };
+
+      # [Service]
+      serviceConfig = {
+        WorkingDirectory = cfg.dataDir;
+        EnvironmentFile = "${cfg.dataDir}/aisdispatcher/aisdispatcher_%i.opts";
+        ExecStart = "${aisdispatcher}/bin/aisdispatcher -s %i";
+        Restart = "always";
+        # So `systemctl --user reload aisdispatcher@foo` sends SIGHUP
+        ReloadSignal = "SIGHUP";
+        Environment = [ "HOME=${cfg.dataDir}" ];
+      };
+
+      # Do NOT put wantedBy here for the template itself.
+    };
+
+    systemd.user.services.aiscontrol = {
+      description = "AIS Control Service";
+      # Avoid network.target in user units (it’s a system target). Let program retry, or add readiness logic.
+      # Safe ordering in user slice (user-scope safe dependency)
+      after = [ "dbus.service" ];
+      unitConfig = {
+        # This is the key: only start in the ais user manager
+        ConditionUser = "ais";
+      };
+      serviceConfig = {
+        WorkingDirectory = cfg.dataDir;
+        ExecStart = "${aisdispatcher}/bin/aiscontrol --config ${aiscontrolConfig}";
+        Restart = "always";
+        Environment = [ "HOME=${cfg.dataDir}" ];
+      };
+      # Auto-enable like `--user enable`
+      wantedBy = [ "default.target" ]; # <— replaces [Install]/WantedBy
     };
 
     # Create data directory
@@ -171,58 +229,12 @@ in {
       chmod 640 ${cfg.dataDir}/aisdispatcher/aisdispatcher_rPiAIS001.opts
     '';
 
-    # Create user-specific systemd configuration
-    # I don't know how else to do it.
-    system.activationScripts.aisdispatcher-user-services = ''
-      # Create user systemd directory
-      mkdir -p ${cfg.dataDir}/.config/systemd/user
-      
-      # Create aisdispatcher@ template service
-      cat > ${cfg.dataDir}/.config/systemd/user/aisdispatcher@.service << 'EOF'
-[Unit]
-Description=AIS Dispatcher %I
-After=network.target
-ConditionFileNotEmpty=${cfg.dataDir}/aisdispatcher/aisdispatcher_%i.opts
-
-[Service]
-WorkingDirectory=${cfg.dataDir}
-EnvironmentFile=${cfg.dataDir}/aisdispatcher/aisdispatcher_%i.opts
-ExecStart=${aisdispatcher}/bin/aisdispatcher -s %i
-Restart=always
-ExecReload=/bin/kill -HUP $MAINPID
-Environment=HOME=${cfg.dataDir}
-
-[Install]
-WantedBy=basic.target
-EOF
-
-      # Create aiscontrol service
-      cat > ${cfg.dataDir}/.config/systemd/user/aiscontrol.service << 'EOF'
-[Unit]
-Description=AIS Control Service
-After=network.target
-
-[Service]
-WorkingDirectory=${cfg.dataDir}
-ExecStart=${aisdispatcher}/bin/aiscontrol --config ${aiscontrolConfig}
-Restart=always
-Environment=HOME=${cfg.dataDir}
-
-[Install]
-WantedBy=basic.target
-EOF
-
-      # Set ownership
-      chown -R ${cfg.user}:${cfg.group} ${cfg.dataDir}/.config
-      
-      # Enable and start user services
-      #sudo -u ${cfg.user} XDG_RUNTIME_DIR=/run/user/$(id -u ${cfg.user}) systemctl --user daemon-reload
-      #sudo -u ${cfg.user} XDG_RUNTIME_DIR=/run/user/$(id -u ${cfg.user}) systemctl --user enable aiscontrol || true
-    '';
-
     # Firewall
     networking.firewall = mkIf cfg.openFirewall {
-      allowedTCPPorts = [ cfg.port cfg.websocketPort ];
+      allowedTCPPorts = [
+        cfg.port
+        cfg.websocketPort
+      ];
     };
 
     # Add package to system packages

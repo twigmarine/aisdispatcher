@@ -136,6 +136,7 @@ systemctl start user@$(id -u ais).service
 systemctl is-active user@$(id -u ais).service
 
 # Check aiscontrol service status (main web interface)
+sudo systemctl --machine=ais@.host --user status aiscontrol
 sudo -u ais systemctl --user status aiscontrol
 
 # Check dispatcher instance status
@@ -150,6 +151,7 @@ sudo -u ais systemctl --user restart aiscontrol
 sudo -u ais systemctl --user restart 'aisdispatcher@*'
 
 # Enable services (done automatically by NixOS module)
+sudo systemctl --machine=ais@.host --user enable --now aiscontrol.service
 sudo -u ais systemctl --user enable aiscontrol
 ```
 
