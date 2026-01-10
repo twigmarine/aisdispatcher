@@ -211,7 +211,8 @@ in
     ];
 
     # Copy default configuration files if they don't exist
-    system.activationScripts.aisdispatcher-config = ''
+    system.activationScripts.aisdispatcher-config.deps = [ "users" ];
+    system.activationScripts.aisdispatcher-config.text = ''
       # Copy aisdispatcher directory if it doesn't exist
       if [ ! -d "${cfg.dataDir}/aisdispatcher" ]; then
         mkdir -p ${cfg.dataDir}/aisdispatcher
