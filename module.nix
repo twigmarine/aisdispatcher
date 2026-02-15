@@ -186,7 +186,7 @@ in
 
     systemd.user.services.aiscontrol = {
       description = "AIS Control Service";
-      # Avoid network.target in user units (it’s a system target). Let program retry, or add readiness logic.
+      # Avoid network.target in user units (it's a system target). Let program retry, or add readiness logic.
       # Safe ordering in user slice (user-scope safe dependency)
       after = [ "dbus.service" ];
       unitConfig = {
@@ -201,6 +201,33 @@ in
       };
       # Auto-enable like `--user enable`
       wantedBy = [ "default.target" ]; # <— replaces [Install]/WantedBy
+    };
+
+    # Start dispatcher instances for any existing .opts files on boot.
+    # The upstream aiscontrol binary uses `systemctl --user enable aisdispatcher@<name>`
+    # to persist instances across reboots, but NixOS declarative user units don't
+    # preserve those symlinks. This oneshot discovers configured instances and starts them.
+    systemd.user.services.aisdispatcher-autostart = {
+      description = "Auto-start configured AIS Dispatcher instances";
+      after = [ "aiscontrol.service" ];
+      requires = [ "aiscontrol.service" ];
+      unitConfig = {
+        ConditionUser = "ais";
+      };
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        Environment = [ "HOME=${cfg.dataDir}" ];
+        ExecStart = pkgs.writeShellScript "aisdispatcher-autostart" ''
+          for opts in ${cfg.dataDir}/aisdispatcher/aisdispatcher_*.opts; do
+            [ -s "$opts" ] || continue
+            instance=''${opts##*/aisdispatcher_}
+            instance=''${instance%.opts}
+            ${pkgs.systemd}/bin/systemctl --user start "aisdispatcher@$instance.service" || true
+          done
+        '';
+      };
+      wantedBy = [ "default.target" ];
     };
 
     # Create data directory
